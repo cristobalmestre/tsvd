@@ -69,10 +69,10 @@ class Learner(BaseLearner):
                 torch.cuda.synchronize()
                 self.times['feature'] += time.time() - feature_start
 
-                algorithm_start = time.time()
+                #algorithm_start = time.time()
                 embedding_list.append(embedding.cpu())
                 label_list.append(label.cpu())
-                self.times['algorithm'] += time.time() - algorithm_start
+                #self.times['algorithm'] += time.time() - algorithm_start
 
         algorithm_start = time.time()
 
@@ -102,7 +102,7 @@ class Learner(BaseLearner):
         torch.cuda.synchronize()
         self.times['algorithm'] += time.time() - algorithm_start
 
-        # self.save_times()
+        self.save_times()
         
         return model
 
@@ -160,6 +160,7 @@ class Learner(BaseLearner):
             print('Multiple GPUs')
             self._network = nn.DataParallel(self._network, self._multiple_gpus)
         self._train(self.train_loader, self.test_loader, self.train_loader_for_protonet)
+        self.save_times() # Included by Cristobal
 
         if len(self._multiple_gpus) > 1:
             self._network = self._network.module
