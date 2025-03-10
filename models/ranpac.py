@@ -126,9 +126,9 @@ class Learner(BaseLearner):
             self._network.W_rand = self.W_rand
 
             self.Q = torch.zeros(M, self.args["nb_classes"])
-            self.G = torch.zeros(M, M)
-            self.L = torch.zeros(M, M)
-            self.D = torch.zeros(M, M)
+            self.G = torch.zeros(M, M, dtype=torch.float32)
+            self.L = torch.zeros(M, M, dtype=torch.float32)
+            self.D = torch.zeros(M, M, dtype=torch.float32)
 
             self.RP_initialized = True
 
@@ -141,7 +141,7 @@ class Learner(BaseLearner):
 
         #L_val, D_val, perm = torch.linalg.ldl_factor(G_val, hermitian=True)
         L_val, D_val = torch.linalg.ldl_factor(G_val, hermitian=True)
-        
+
         #L_val = torch.linalg.cholesky(G_val)
         G_val = L_val @ D_val @ L_val.T
 
