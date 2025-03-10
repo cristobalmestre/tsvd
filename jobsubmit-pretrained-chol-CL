@@ -8,7 +8,6 @@
 #SBATCH --mem=64g
 #SBATCH --gres=gpu:a40:1
 #SBATCH --nodelist=node201
-#SBATCH --export=CONFIG_ARG=./exps/ranpac_ease/adapter_cifar_in21k.json
 
 
 #module load cuda/12.2
