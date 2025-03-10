@@ -143,6 +143,8 @@ class Learner(BaseLearner):
         #L_val, D_val, perm = torch.linalg.ldl_factor(G_val, hermitian=True)
         L_val, D_val = torch.linalg.ldl_factor(G_val, hermitian=True)
 
+        D_val = D_val.to(dtype=self.G.dtype)
+
         #L_val = torch.linalg.cholesky(G_val)
         G_val = L_val @ D_val @ L_val.T
 
