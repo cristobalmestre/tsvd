@@ -4,18 +4,24 @@
 #SBATCH -n 1
 #SBATCH -e err-cristobal."%j".txt
 #SBATCH -o out-cristobal."%j".txt
-#SBATCH -J TAOCL
+#SBATCH -J CrisCL
 #SBATCH --mem=64g
 #SBATCH --gres=gpu:a40:1
 #SBATCH --nodelist=node201
 
 #module load cuda/12.2
 
-#export PATH=/home/cmestre/miniconda3/envs/cl_env/bin:$PATH
+# Activate Conda environment properly
+source ~/.bashrc
+conda activate cl_env
+
+export PATH=/home/cmestre/miniconda3/envs/cl_env/bin:$PATH
 cd /home/cmestre/tsvd
+pwd  # Print current directory for debugging
+
 # executable 
 #/usr/bin/sleep 5m
-pwd
+# pwd
 
 CONFIG_ARG=$1
 
