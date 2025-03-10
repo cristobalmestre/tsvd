@@ -90,18 +90,24 @@ class Learner(BaseLearner):
         self.Q = self.Q + Features_h.T @ Y
         self.G = self.G + Features_h.T @ Features_h
 
-        #self.L, self.D, perm = torch.linalg.ldl_factor(self.G, hermitian=True)
-        self.L, self.D = torch.linalg.ldl_factor(self.G, hermitian=True)
+        #self.L, self.D, perm = torch.linalg.ldl_factor(self.G)
+        #self.L, self.D = torch.linalg.ldl_factor(self.G, hermitian=True)
+        #self.D = self.D.to(dtype=self.G.dtype)
+        #self.G = self.L @ self.D @ self.L.T
 
-        self.D = self.D.to(dtype=self.G.dtype)
-        self.G = self.L @ self.D @ self.L.T
 
-        if self.args['search_ridge']:
-            ridge = self.optimise_ridge_parameter(Features_h, Y)
-        else:
-            ridge = self.args['ridge']
+        #if self.args['search_ridge']:
+        #    ridge = self.optimise_ridge_parameter(Features_h, Y)
+        #else:
+        #    ridge = self.args['ridge']
+        ridge = 100000
 
-        Wo = torch.linalg.solve(self.G + ridge*torch.eye(self.G.size(dim=0)), self.Q).T # better nmerical stability than .invv
+        W_aux = self.G + ridge*torch.eye(self.G.size(dim=0))
+
+        self.L = torch.linalg.cholesky(W_aux)
+        Wo = torch.cholesky_solve(self.Q, self.L)
+
+        #Wo = torch.linalg.solve(self.G + ridge*torch.eye(self.G.size(dim=0)), self.Q).T # better nmerical stability than .invv
         self._network.fc.weight.data = Wo[0:self._network.fc.weight.shape[0], :].to(self._device)
 
         # print(self._network.fc.weight.data.shape)
@@ -129,7 +135,7 @@ class Learner(BaseLearner):
             self.Q = torch.zeros(M, self.args["nb_classes"])
             self.G = torch.zeros(M, M, dtype=torch.float32)
             self.L = torch.zeros(M, M, dtype=torch.float32)
-            self.D = torch.zeros(M, M, dtype=torch.float32)
+            #self.D = torch.zeros(M, M, dtype=torch.float32)
 
             self.RP_initialized = True
 
@@ -140,15 +146,24 @@ class Learner(BaseLearner):
         Q_val = Features[0:num_val_samples, :].T @ Y[0:num_val_samples, :]
         G_val = Features[0:num_val_samples, :].T @ Features[0:num_val_samples, :]
 
-        #L_val, D_val, perm = torch.linalg.ldl_factor(G_val, hermitian=True)
-        L_val, D_val = torch.linalg.ldl_factor(G_val, hermitian=True)
 
-        D_val = D_val.to(dtype=self.G.dtype)
+
+        #L_val, D_val, perm = torch.linalg.ldl_factor(G_val)
+        #L_val, D_val = torch.linalg.ldl_factor(G_val, hermitian=True)
+
+        #D_val = D_val.to(dtype=self.G.dtype)
 
         #L_val = torch.linalg.cholesky(G_val)
-        G_val = L_val @ D_val @ L_val.T
+        #G_val = L_val @ D_val @ L_val.T
 
         for ridge in ridges:
+
+            W_aux_val = G_val + ridge*torch.eye(G_val.size(dim=0))
+
+            L_val = torch.linalg.cholesky(W_aux_val)
+
+            Wo = torch.cholesky_solve(Q_val, L_val)
+
             Wo = torch.linalg.solve(G_val + ridge*torch.eye(G_val.size(dim=0)), Q_val).T #better nmerical stability than .inv
             Y_train_pred = Features[num_val_samples::,:] @ Wo.T
             losses.append(F.mse_loss(Y_train_pred, Y[num_val_samples::, :]).item())

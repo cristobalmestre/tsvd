@@ -29,6 +29,8 @@ def get_model(model_name, args):
     elif name == "memo":
         from models.memo import Learner
     elif name == 'ranpac':
+        from models.ranpac_original import Learner
+    elif name == 'ranpac_cholesky':
         from models.ranpac import Learner
     elif name == "ease":
         from models.ease import Learner
