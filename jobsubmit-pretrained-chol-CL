@@ -25,14 +25,11 @@ pwd  # Print current directory for debugging
 #/usr/bin/sleep 5m
 # pwd
 
+CONFIG_ARG=$1
 
 # Load any required modules
 
 # Run your Python script with command-line parameters
 # python my_script.py $ARG1
-
-if [ -z "$CONFIG_ARG" ]; then
-    CONFIG_ARG="./exps/ranpac_ease/adapter_cifar_in21k.json"
-fi
 
 python main.py $CONFIG_ARG
