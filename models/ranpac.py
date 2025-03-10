@@ -90,7 +90,8 @@ class Learner(BaseLearner):
         self.Q = self.Q + Features_h.T @ Y
         self.G = self.G + Features_h.T @ Features_h
 
-        self.L, self.D, perm = torch.linalg.ldl_factor(self.G, hermitian=True)
+        #self.L, self.D, perm = torch.linalg.ldl_factor(self.G, hermitian=True)
+        self.L, self.D = torch.linalg.ldl_factor(self.G, hermitian=True)
 
         self.G = self.L @ self.D @ self.L.T
 
@@ -138,8 +139,10 @@ class Learner(BaseLearner):
         Q_val = Features[0:num_val_samples, :].T @ Y[0:num_val_samples, :]
         G_val = Features[0:num_val_samples, :].T @ Features[0:num_val_samples, :]
 
-        L_val, D_val, perm = torch.linalg.ldl_factor(G_val, hermitian=True)
-        L_val = torch.linalg.cholesky(G_val)
+        #L_val, D_val, perm = torch.linalg.ldl_factor(G_val, hermitian=True)
+        L_val, D_val = torch.linalg.ldl_factor(G_val, hermitian=True)
+        
+        #L_val = torch.linalg.cholesky(G_val)
         G_val = L_val @ D_val @ L_val.T
 
         for ridge in ridges:
