@@ -93,6 +93,7 @@ class Learner(BaseLearner):
         #self.L, self.D, perm = torch.linalg.ldl_factor(self.G, hermitian=True)
         self.L, self.D = torch.linalg.ldl_factor(self.G, hermitian=True)
 
+        self.D = self.D.to(dtype=self.G.dtype)
         self.G = self.L @ self.D @ self.L.T
 
         if self.args['search_ridge']:
