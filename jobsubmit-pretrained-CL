@@ -26,6 +26,7 @@ pwd  # Print current directory for debugging
 #/usr/bin/sleep 5m
 # pwd
 
+CONFIG_ARG=$1
 
 # Load any required modules
 
