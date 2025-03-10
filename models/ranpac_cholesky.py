@@ -89,10 +89,8 @@ class Learner(BaseLearner):
         Features_h = F.relu(embedding_list @ self.W_rand.cpu())
         self.Q = self.Q + Features_h.T @ Y
         self.G = self.G + Features_h.T @ Features_h
-
-        self.L, self.D, perm = torch.linalg.ldl_factor(self.G, hermitian=True)
-
-        self.G = self.L @ self.D @ self.L.T
+        self.L = torch.linalg.cholesky(self.G)
+        self.G = self.L @ self.L.T
 
         if self.args['search_ridge']:
             ridge = self.optimise_ridge_parameter(Features_h, Y)
@@ -127,7 +125,6 @@ class Learner(BaseLearner):
             self.Q = torch.zeros(M, self.args["nb_classes"])
             self.G = torch.zeros(M, M)
             self.L = torch.zeros(M, M)
-            self.D = torch.zeros(M, M)
 
             self.RP_initialized = True
 
@@ -137,11 +134,8 @@ class Learner(BaseLearner):
         losses = []
         Q_val = Features[0:num_val_samples, :].T @ Y[0:num_val_samples, :]
         G_val = Features[0:num_val_samples, :].T @ Features[0:num_val_samples, :]
-
-        L_val, D_val, perm = torch.linalg.ldl_factor(G_val, hermitian=True)
         L_val = torch.linalg.cholesky(G_val)
-        G_val = L_val @ D_val @ L_val.T
-
+        G_val = L_val @ L_val.T
         for ridge in ridges:
             Wo = torch.linalg.solve(G_val + ridge*torch.eye(G_val.size(dim=0)), Q_val).T #better nmerical stability than .inv
             Y_train_pred = Features[num_val_samples::,:] @ Wo.T
