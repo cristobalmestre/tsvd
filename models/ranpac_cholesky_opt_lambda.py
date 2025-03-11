@@ -144,7 +144,8 @@ class Learner(BaseLearner):
 
     def optimise_ridge_parameter(self, Features, Y):
         #ridges = 10.0 ** np.arange(-8, 9)
-        ridges = 10.0 ** np.arange(-0, 9) # tried higher values to have a positive-definite W_aux_val matrix
+        ridges = 10.0 ** np.arange(2, 9) # tried higher values to have a positive-definite W_aux_val matrix
+        logging.info(f"Testing with this set of Ridge parameters: {ridges}")
         num_val_samples = int(Features.shape[0] * 0.8)
         losses = []
         Q_val = Features[0:num_val_samples, :].T @ Y[0:num_val_samples, :]
