@@ -5,7 +5,7 @@ from utils.toolkit import split_images_labels
 
 # dataset_root = '/shared_data/LP'
 
-dataset_root = 'specify your dataset root path'
+dataset_root = './data'
 
 class iData(object):
     train_trsf = []

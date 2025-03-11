@@ -52,6 +52,11 @@ class Learner(BaseLearner):
         fn = f'{root}/training_time-inc{inc}-M={M}-{model_name}-{backbone_name}-{dataset_name}.npy'
         np.save(fn, [self.times['feature'], self.times['algorithm']])
 
+        # Log the times in INFO level
+        logging.info(f"Feature extraction time: {self.times['feature']:.4f} seconds")
+        logging.info(f"Algorithm processing time: {self.times['algorithm']:.4f} seconds")
+        logging.info(f"Total training time saved in: {fn}")
+
     def replace_fc(self, trainloader, model, args):       
         model = model.eval()
         embedding_list = []
@@ -84,10 +89,13 @@ class Learner(BaseLearner):
         self.Q = self.Q + Features_h.T @ Y
         self.G = self.G + Features_h.T @ Features_h
 
+        '''
         if self.args['search_ridge']:
             ridge = self.optimise_ridge_parameter(Features_h, Y)
         else:
             ridge = self.args['ridge']
+        '''
+        ridge = 100000
 
         Wo = torch.linalg.solve(self.G + ridge*torch.eye(self.G.size(dim=0)), self.Q).T # better nmerical stability than .invv
         self._network.fc.weight.data = Wo[0:self._network.fc.weight.shape[0], :].to(self._device)
@@ -100,7 +108,7 @@ class Learner(BaseLearner):
         torch.cuda.synchronize()
         self.times['algorithm'] += time.time() - algorithm_start
 
-        # self.save_times()
+        self.save_times()
         
         return model
 
