@@ -38,6 +38,7 @@ class Learner(BaseLearner):
         self._known_classes = self._total_classes
 
     def save_times(self):
+        logging.info('test 1 time')
         M = self.args['M']
 
         root = './results'
@@ -57,6 +58,7 @@ class Learner(BaseLearner):
         logging.info(f"Feature extraction time: {self.times['feature']:.4f} seconds")
         logging.info(f"Algorithm processing time: {self.times['algorithm']:.4f} seconds")
         logging.info(f"Total training time saved in: {fn}")
+        logging.info('test 2 time')
 
     def replace_fc(self, trainloader, model, args):       
         model = model.eval()
@@ -95,17 +97,18 @@ class Learner(BaseLearner):
         #self.D = self.D.to(dtype=self.G.dtype)
         #self.G = self.L @ self.D @ self.L.T
 
-
-        #if self.args['search_ridge']:
-        #    ridge = self.optimise_ridge_parameter(Features_h, Y)
-        #else:
-        #    ridge = self.args['ridge']
+        '''
+        if self.args['search_ridge']:
+            ridge = self.optimise_ridge_parameter(Features_h, Y)
+        else:
+            ridge = self.args['ridge']
+        '''
         ridge = 100000
 
         W_aux = self.G + ridge*torch.eye(self.G.size(dim=0))
 
         self.L = torch.linalg.cholesky(W_aux)
-        Wo = torch.cholesky_solve(self.Q, self.L)
+        Wo = torch.cholesky_solve(self.Q, self.L).T
 
         #Wo = torch.linalg.solve(self.G + ridge*torch.eye(self.G.size(dim=0)), self.Q).T # better nmerical stability than .invv
         self._network.fc.weight.data = Wo[0:self._network.fc.weight.shape[0], :].to(self._device)
@@ -158,13 +161,13 @@ class Learner(BaseLearner):
 
         for ridge in ridges:
 
-            W_aux_val = G_val + ridge*torch.eye(G_val.size(dim=0))
+            W_aux_val = G_val + ridge*torch.eye(G_val.size(dim=0)).T
 
             L_val = torch.linalg.cholesky(W_aux_val)
 
             Wo = torch.cholesky_solve(Q_val, L_val)
 
-            Wo = torch.linalg.solve(G_val + ridge*torch.eye(G_val.size(dim=0)), Q_val).T #better nmerical stability than .inv
+            #Wo = torch.linalg.solve(G_val + ridge*torch.eye(G_val.size(dim=0)), Q_val).T #better nmerical stability than .inv
             Y_train_pred = Features[num_val_samples::,:] @ Wo.T
             losses.append(F.mse_loss(Y_train_pred, Y[num_val_samples::, :]).item())
         ridge = ridges[np.argmin(np.array(losses))]
