@@ -89,13 +89,13 @@ class Learner(BaseLearner):
         self.Q = self.Q + Features_h.T @ Y
         self.G = self.G + Features_h.T @ Features_h
 
-        '''
+        
         if self.args['search_ridge']:
             ridge = self.optimise_ridge_parameter(Features_h, Y)
         else:
             ridge = self.args['ridge']
-        '''
-        ridge = 100000
+        
+        #ridge = 100000
 
         Wo = torch.linalg.solve(self.G + ridge*torch.eye(self.G.size(dim=0)), self.Q).T # better nmerical stability than .invv
         self._network.fc.weight.data = Wo[0:self._network.fc.weight.shape[0], :].to(self._device)
@@ -128,7 +128,9 @@ class Learner(BaseLearner):
             self.RP_initialized = True
 
     def optimise_ridge_parameter(self, Features, Y):
-        ridges = 10.0 ** np.arange(-8, 9)
+        #ridges = 10.0 ** np.arange(-8, 9)
+        ridges = 10.0 ** np.arange(2, 9)
+        logging.info(f"Testing with this set of Ridge parameters: {ridges}")
         num_val_samples = int(Features.shape[0] * 0.8)
         losses = []
         Q_val = Features[0:num_val_samples, :].T @ Y[0:num_val_samples, :]
