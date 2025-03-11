@@ -97,12 +97,13 @@ class Learner(BaseLearner):
         #self.D = self.D.to(dtype=self.G.dtype)
         #self.G = self.L @ self.D @ self.L.T
 
-
+        '''
         if self.args['search_ridge']:
             ridge = self.optimise_ridge_parameter(Features_h, Y)
         else:
             ridge = self.args['ridge']
-        #ridge = 100000
+        '''
+        ridge = 100000
 
         W_aux = self.G + ridge*torch.eye(self.G.size(dim=0))
 
