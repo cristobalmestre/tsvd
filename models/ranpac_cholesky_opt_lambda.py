@@ -97,17 +97,18 @@ class Learner(BaseLearner):
         #self.D = self.D.to(dtype=self.G.dtype)
         #self.G = self.L @ self.D @ self.L.T
 
-
+        
         if self.args['search_ridge']:
             ridge = self.optimise_ridge_parameter(Features_h, Y)
         else:
             ridge = self.args['ridge']
+        
         #ridge = 100000
 
         W_aux = self.G + ridge*torch.eye(self.G.size(dim=0))
 
         self.L = torch.linalg.cholesky(W_aux)
-        Wo = torch.cholesky_solve(self.Q, self.L)
+        Wo = torch.cholesky_solve(self.Q, self.L).T
 
         #Wo = torch.linalg.solve(self.G + ridge*torch.eye(self.G.size(dim=0)), self.Q).T # better nmerical stability than .invv
         self._network.fc.weight.data = Wo[0:self._network.fc.weight.shape[0], :].to(self._device)
@@ -164,7 +165,7 @@ class Learner(BaseLearner):
 
             L_val = torch.linalg.cholesky(W_aux_val)
 
-            Wo = torch.cholesky_solve(Q_val, L_val)
+            Wo = torch.cholesky_solve(Q_val, L_val).T
 
             #Wo = torch.linalg.solve(G_val + ridge*torch.eye(G_val.size(dim=0)), Q_val).T #better nmerical stability than .inv
             Y_train_pred = Features[num_val_samples::,:] @ Wo.T

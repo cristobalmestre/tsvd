@@ -34,6 +34,8 @@ def get_model(model_name, args):
         from models.ranpac import Learner
     elif name == 'ranpac_cholesky':
         from models.ranpac_cholesky import Learner
+    elif name == 'ranpac_cholesky_opt_lambda':
+        from models.ranpac_cholesky_opt_lambda import Learner
     elif name == "ease":
         from models.ease import Learner
     elif name == 'tsvd':
