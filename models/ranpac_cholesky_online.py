@@ -139,7 +139,7 @@ class Learner(BaseLearner):
             self.Q = torch.zeros(M, self.args["nb_classes"])
             self.G = torch.zeros(M, M, dtype=torch.float32)
             #self.L = torch.zeros(M, M, dtype=torch.float32)
-            self.L = torch.eye(M) * torch.sqrt(ridge)
+            self.L = torch.eye(M, dtype=torch.float32) * torch.sqrt(torch.tensor(ridge, dtype=torch.float32))
             #self.D = torch.zeros(M, M, dtype=torch.float32)
 
             self.RP_initialized = True
