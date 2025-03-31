@@ -360,3 +360,75 @@ def test_cholesky_update():
     L_downdated = cholesky_update(L_original, x, add=False)
     diff_down = torch.norm(L_downdated - L_downdated_true)
     print(f"Difference for downdate: {diff_down:.8f}")
+
+def cholesky_update_vectorized(L, X, add=True):
+    """
+    Fully vectorized implementation of Cholesky decomposition update
+    for low-rank updates without explicit for loops.
+
+    This implementation uses PyTorch's batched matrix operations to
+    compute the updated Cholesky factor in parallel.
+
+    Parameters:
+    -----------
+    L : torch.Tensor
+    Lower triangular Cholesky factor of shape (n, n)
+    X : torch.Tensor
+    Matrix of shape (n, k) where k is the rank of the update
+    add : bool
+    If True, perform low-rank update (A + X@X.T)
+    If False, perform low-rank downdate (A - X@X.T)
+
+    Returns:
+    --------
+    L_new : torch.Tensor
+    Updated Cholesky factor
+    """
+    n = L.shape[0]
+    k = X.shape[1]
+    device = L.device
+
+    # For downdates, check positive definiteness
+    if not add:
+        # Solve L @ Z = X
+        Z = torch.triangular_solve(X, L, upper=False)[0]
+        # Check if I - Z.T @ Z is positive definite
+        eigenvalues = torch.linalg.eigvalsh(torch.eye(k, device=device) - Z.T @ Z)
+        if torch.any(eigenvalues <= 0):
+            raise ValueError("Cholesky downdate would result in a non-positive definite matrix")
+
+    # We'll use a different approach based on the low-rank update formula
+    # For A' = A + X@X.T, we can derive L' directly
+
+    # 1. Solve L @ Z = X to get Z
+    Z = torch.triangular_solve(X, L, upper=False)[0] # Shape: (n, k)
+
+    # 2. Compute the QR decomposition of Z
+    if add:
+        # For updates: we augment Z with an identity matrix
+        # [Z] [Q1]
+        # [I] = Q[Q2] @ R
+        I_k = torch.eye(k, device=device)
+        Z_augmented = torch.cat([Z, I_k], dim=0) # Shape: (n+k, k)
+        Q, R = torch.linalg.qr(Z_augmented, mode='complete')
+        Q1 = Q[:n, :k] # Shape: (n, k)
+        Q2 = Q[n:, :k] # Shape: (k, k)
+
+        # 3. Compute L' = L @ (I + Q1 @ Q2.T)
+        # This is equivalent to L' = L + L @ Q1 @ Q2.T
+        L_new = L + L @ Q1 @ Q2.T
+    else:
+        # For downdates: we need a slightly different approach
+        # Compute the Cholesky decomposition of I - Z.T @ Z
+        C = torch.linalg.cholesky(torch.eye(k, device=device) - Z.T @ Z)
+
+        # Create a block matrix [Z @ C^-T, L]
+        ZCinv = Z @ torch.triangular_solve(torch.eye(k, device=device), C.T, upper=True)[0]
+
+        # QR decomposition of the block matrix
+        Q, R = torch.linalg.qr(torch.cat([ZCinv, L], dim=1), mode='reduced')
+
+        # Extract the updated L from R
+        L_new = R[:, k:].triu(0).T
+
+    return L_new
