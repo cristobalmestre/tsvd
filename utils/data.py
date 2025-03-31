@@ -3,9 +3,9 @@ from torchvision import datasets, transforms
 from utils.toolkit import split_images_labels
 
 
-# dataset_root = '/shared_data/LP'
+dataset_root = '/shared_data/LP'
 
-dataset_root = './data'
+#dataset_root = './data'
 
 class iData(object):
     train_trsf = []
