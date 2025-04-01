@@ -99,13 +99,18 @@ class Learner(BaseLearner):
             ridge = self.args['ridge']
         '''
         #ridge = 100000
-        #W_aux = self.G + ridge*torch.eye(self.G.size(dim=0))
+        
 
-        self.L = hyperbolic_qr_update(self.L, Features_h.T, add=True) # vectorized version hyperbolic
+        for i in range(Features_h.shape[0]):
+            x = Features_h[i, :].unsqueeze(1)  # shape M×1
+            self.L = hyperbolic_qr_update(self.L, x, add=True)
+
+        #self.L = hyperbolic_qr_update(self.L, Features_h.T, add=True) # vectorized version hyperbolic 
         #self.L = cholesky_update_vectorized(self.L, Features_h.T, add=True) # vectorized version (not working)
 
         #self.L = cholesky_update_batch(self.L, Features_h.T, add=True) # Online slow version (iterating)
 
+        #W_aux = self.G + ridge*torch.eye(self.G.size(dim=0))
         #self.L = torch.linalg.cholesky(W_aux)
         Wo = torch.cholesky_solve(self.Q, self.L).T
 
