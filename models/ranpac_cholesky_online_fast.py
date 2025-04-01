@@ -9,7 +9,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from utils.inc_net import IncrementalNet,SimpleCosineIncrementalNet,MultiBranchCosineIncrementalNet,SimpleVitNet
 from models.base import BaseLearner
-from utils.toolkit import target2onehot, tensor2numpy, cholesky_update, cholesky_update_batch, test_cholesky_update, cholesky_update_vectorized
+from utils.toolkit import target2onehot, tensor2numpy, cholesky_update, cholesky_update_batch, test_cholesky_update, cholesky_update_vectorized, hyperbolic_qr_update
 
 import time
 import os
@@ -101,7 +101,8 @@ class Learner(BaseLearner):
         #ridge = 100000
         #W_aux = self.G + ridge*torch.eye(self.G.size(dim=0))
 
-        self.L = cholesky_update_vectorized(self.L, Features_h.T, add=True) # vectorized version
+        self.L = hyperbolic_qr_update(self.L, Features_h.T, add=True) # vectorized version hyperbolic
+        #self.L = cholesky_update_vectorized(self.L, Features_h.T, add=True) # vectorized version (not working)
 
         #self.L = cholesky_update_batch(self.L, Features_h.T, add=True) # Online slow version (iterating)
 
