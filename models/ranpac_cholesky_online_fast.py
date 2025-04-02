@@ -89,6 +89,8 @@ class Learner(BaseLearner):
         
         Y = target2onehot(label_list, self.args["nb_classes"])
         Features_h = F.relu(embedding_list @ self.W_rand.cpu())
+        Features_h_T = Features_h.T.to(self._device)  # Move to device once
+
         self.Q = self.Q + Features_h.T @ Y
         self.G = self.G + Features_h.T @ Features_h
 
