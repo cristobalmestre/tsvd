@@ -83,19 +83,31 @@ class Learner(BaseLearner):
 
         embedding_list = torch.cat(embedding_list, dim=0)
         label_list = torch.cat(label_list, dim=0)
+
+        # Move to device once for consistent processing
+        embedding_list = embedding_list.to(self._device)
+        label_list = label_list.to(self._device)
         
         Y = target2onehot(label_list, self.args["nb_classes"])
-        Features_h = F.relu(embedding_list @ self.W_rand.cpu())
-        self.Q = self.Q + Features_h.T @ Y
-        self.G = self.G + Features_h.T @ Features_h
 
-        
+        # Make sure W_rand is on the device
+        self.W_rand = self.W_rand.to(self._device)
+
+        #Features_h = F.relu(embedding_list @ self.W_rand.cpu())
+        Features_h = F.relu(embedding_list @ self.W_rand)
+        Features_h_T = Features_h.T
+
+        self.Q = self.Q + Features_h_T @ Y
+        self.G = self.G + Features_h_T @ Features_h
+
+        '''
         if self.args['search_ridge']:
             ridge = self.optimise_ridge_parameter(Features_h, Y)
         else:
             ridge = self.args['ridge']
-        
-        #ridge = 100000
+        '''
+
+        ridge = 100000
 
         Wo = torch.linalg.solve(self.G + ridge*torch.eye(self.G.size(dim=0)), self.Q).T # better nmerical stability than .invv
         self._network.fc.weight.data = Wo[0:self._network.fc.weight.shape[0], :].to(self._device)
@@ -122,8 +134,8 @@ class Learner(BaseLearner):
             self.W_rand = torch.randn(self._network.fc.in_features, M).to(self._device)
             self._network.W_rand = self.W_rand
 
-            self.Q = torch.zeros(M, self.args["nb_classes"])
-            self.G = torch.zeros(M, M)
+            self.Q = torch.zeros(M, self.args["nb_classes"], device=self._device)
+            self.G = torch.zeros(M, M, dtype=torch.float32, device=self._device)
 
             self.RP_initialized = True
 
