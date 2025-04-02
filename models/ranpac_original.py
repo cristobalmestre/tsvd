@@ -113,8 +113,11 @@ class Learner(BaseLearner):
 
         ridge = 100000
 
-        Wo = torch.linalg.solve(self.G + ridge*torch.eye(self.G.size(dim=0)), self.Q).T.to(self._device) # better nmerical stability than .invv
-        self._network.fc.weight.data = Wo[0:self._network.fc.weight.shape[0], :].to(self._device)
+        # Create identity matrix on the same device
+        eye_matrix = torch.eye(self.G.size(dim=0), device=self._device)
+
+        Wo = torch.linalg.solve(self.G + ridge*eye_matrix, self.Q).T # better nmerical stability than .invv
+        self._network.fc.weight.data = Wo[0:self._network.fc.weight.shape[0], :]#.to(self._device)
 
         # print(self._network.fc.weight.data.shape)
         #
