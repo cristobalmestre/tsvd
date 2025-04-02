@@ -110,8 +110,8 @@ class Learner(BaseLearner):
             self.L = torch.linalg.cholesky(W_aux)
         
 
-        if self.L.device != Features_h.T.device:
-            Features_h = Features_h.to(self.L.device)
+        #if self.L.device != Features_h.T.device:
+        #    Features_h = Features_h.to(self.L.device)
             
         #self.L = hyperbolic_qr_update(self.L, Features_h.T, add=True) # vectorized version hyperbolic 
         #self.L = cholesky_update_vectorized(self.L, Features_h.T, add=True) # vectorized version (not working)
