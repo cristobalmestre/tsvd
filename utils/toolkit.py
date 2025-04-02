@@ -546,3 +546,100 @@ def cholesky_rank_k_update(L, X, add=True):
     L_new = torch.tril(L_new)
     
     return L_new
+
+def cholesky_rank_k_update_v2(L, X, add=True, eps=1e-6): # Not used yet
+    """
+    Robust Cholesky rank-k update/downdate implementation.
+    Uses the Cholesky-Schur formula with additional safeguards for numerical stability.
+    
+    Parameters:
+    -----------
+    L : torch.Tensor
+        Lower triangular Cholesky factor of shape (n, n)
+    X : torch.Tensor
+        Matrix of shape (n, k) where k is the number of simultaneous rank-1 updates
+    add : bool
+        If True, perform update (A + XX'); if False, perform downdate (A - XX')
+    eps : float
+        Small constant for numerical stability
+        
+    Returns:
+    --------
+    L_new : torch.Tensor
+        Updated Cholesky factor
+    """
+    n = L.shape[0]
+    k = X.shape[1]
+    device = L.device
+    
+    # Check if L is properly initialized - should be a valid lower triangular matrix
+    if torch.count_nonzero(L) == 0:
+        raise ValueError("Cholesky factor L must be initialized properly (non-zero)")
+    
+    # Step 1: Solve L*P = X (triangular solve for each column of X)
+    P = torch.triangular_solve(X, L, upper=False)[0]  # Shape: (n, k)
+    
+    # Step 2: Compute the Cholesky factor of (I ± P'P)
+    sign = 1.0 if add else -1.0
+    PTP = P.t() @ P
+    
+    # Add a small regularization for numerical stability
+    I_pm_PTP = torch.eye(k, device=device) + sign * PTP
+    
+    # For numerical stability, ensure I_pm_PTP is symmetric
+    I_pm_PTP = 0.5 * (I_pm_PTP + I_pm_PTP.t())
+    
+    # For updates, we can add a small epsilon to the diagonal for stability
+    if add:
+        I_pm_PTP.diagonal().add_(eps)
+    else:
+        # For downdates, check positive definiteness
+        eigenvalues = torch.linalg.eigvalsh(I_pm_PTP)
+        if torch.any(eigenvalues <= eps):
+            raise ValueError("Cholesky downdate would result in a non-positive definite matrix")
+    
+    # Compute Cholesky factor of I ± P'P
+    try:
+        C = torch.linalg.cholesky(I_pm_PTP)  # Shape: (k, k)
+    except Exception as e:
+        # If Cholesky decomposition fails, use eigenvalue decomposition as fallback
+        eigenvalues, eigenvectors = torch.linalg.eigh(I_pm_PTP)
+        eigenvalues = torch.clamp(eigenvalues, min=eps)  # Ensure all eigenvalues are positive
+        C = eigenvectors @ torch.diag(torch.sqrt(eigenvalues))
+        C = torch.tril(C @ eigenvectors.t())  # Ensure lower triangular
+    
+    # Step 3: Compute the updated Cholesky factor
+    try:
+        W = torch.triangular_solve(P @ torch.triangular_solve(P.t(), C.t(), upper=True)[0], 
+                                  L.t(), upper=True)[0]
+        
+        if add:
+            L_new = L + W.t()
+        else:
+            L_new = L - W.t()
+            
+        # Ensure the result is lower triangular
+        L_new = torch.tril(L_new)
+        
+        # Verify the result is valid
+        if torch.any(torch.isnan(L_new)) or torch.any(torch.isinf(L_new)):
+            raise ValueError("Update resulted in NaN or Inf values")
+            
+        return L_new
+        
+    except Exception as e:
+        print(f"Error in triangular solve: {e}")
+        # Fallback to direct computation for this update
+        if add:
+            A_new = L @ L.t() + X @ X.t()
+        else:
+            A_new = L @ L.t() - X @ X.t()
+            
+        # Add small regularization for stability
+        A_new.diagonal().add_(eps)
+        
+        # Ensure symmetry
+        A_new = 0.5 * (A_new + A_new.t())
+        
+        # Compute fresh Cholesky
+        return torch.linalg.cholesky(A_new)

@@ -91,8 +91,12 @@ class Learner(BaseLearner):
         Features_h = F.relu(embedding_list @ self.W_rand.cpu())
         Features_h_T = Features_h.T.to(self._device)  # Move to device once
 
-        self.Q = self.Q + Features_h.T @ Y
-        self.G = self.G + Features_h.T @ Features_h
+        # Make sure Q and G are on the same device
+        self.Q = self.Q.to(self._device)
+        self.G = self.G.to(self._device)
+
+        self.Q = self.Q + Features_h.T @ Y.to(self._device)
+        self.G = self.G + Features_h.T @ Features_h.to(self._device)
 
         '''
         if self.args['search_ridge']:
@@ -100,6 +104,10 @@ class Learner(BaseLearner):
         else:
             ridge = self.args['ridge']
         '''
+
+        if hasattr(self, 'L'):
+            self.L = self.L.to(self._device)
+
         ridge = 100000
 
         try:
@@ -108,8 +116,8 @@ class Learner(BaseLearner):
             # Fallback: Recompute full Cholesky if update fails
             print(f"Rank-k update failed, falling back to full Cholesky: {e}")
             ridge = 100000
-            # W_aux = self.G + ridge * torch.eye(self.G.size(dim=0), device=self._device)
-            W_aux = self.G + ridge*torch.eye(self.G.size(dim=0))
+            W_aux = self.G + ridge * torch.eye(self.G.size(dim=0), device=self._device)
+            #W_aux = self.G + ridge*torch.eye(self.G.size(dim=0))
             self.L = torch.linalg.cholesky(W_aux)
         
 
