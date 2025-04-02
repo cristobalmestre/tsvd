@@ -100,15 +100,14 @@ class Learner(BaseLearner):
         '''
         ridge = 100000
 
-        # If this is the first update with non-zero data:
-        if torch.all(torch.isclose(self.L, torch.eye(self.L.shape[0]) * torch.sqrt(torch.tensor(ridge)))):
-            # Initialize with the full decomposition once
-            W_aux = self.G + ridge * torch.eye(self.G.size(dim=0))
-            self.L = torch.linalg.cholesky(W_aux)
-        else:
-            # Then use the efficient updates for subsequent data
-            Features_h_T = Features_h.T.to(self.L.device)
+        try:
             self.L = cholesky_rank_k_update(self.L, Features_h_T, add=True)
+        except Exception as e:
+            # Fallback: Recompute full Cholesky if update fails
+            print(f"Rank-k update failed, falling back to full Cholesky: {e}")
+            ridge = 100000
+            W_aux = self.G + ridge * torch.eye(self.G.size(dim=0), device=self._device)
+            self.L = torch.linalg.cholesky(W_aux)
         
 
         if self.L.device != Features_h.T.device:
@@ -150,10 +149,10 @@ class Learner(BaseLearner):
 
             self.Q = torch.zeros(M, self.args["nb_classes"])
             self.G = torch.zeros(M, M, dtype=torch.float32)
-            self.L = torch.zeros(M, M, dtype=torch.float32)
-
-            # for inicialization without the if else condition in replace_fc
-            #self.L = torch.eye(M, dtype=torch.float32) * torch.sqrt(torch.tensor(ridge, dtype=torch.float32))  
+            
+            # for inicialization of self.L
+            self.L = torch.eye(M, dtype=torch.float32) * torch.sqrt(torch.tensor(ridge, dtype=torch.float32))
+            
 
             #self.D = torch.zeros(M, M, dtype=torch.float32)
 

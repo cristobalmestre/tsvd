@@ -509,6 +509,10 @@ def cholesky_rank_k_update(L, X, add=True):
     n = L.shape[0]
     k = X.shape[1]
     device = L.device
+
+    # Check if L is properly initialized - should be a valid lower triangular matrix
+    if torch.count_nonzero(L) == 0:
+        raise ValueError("Cholesky factor L must be initialized properly (non-zero)")
     
     # Step 1: Solve L*P = X (triangular solve for each column of X)
     P = torch.triangular_solve(X, L, upper=False)[0]  # Shape: (n, k)
