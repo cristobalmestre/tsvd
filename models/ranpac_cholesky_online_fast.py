@@ -9,7 +9,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from utils.inc_net import IncrementalNet,SimpleCosineIncrementalNet,MultiBranchCosineIncrementalNet,SimpleVitNet
 from models.base import BaseLearner
-from utils.toolkit import target2onehot, tensor2numpy, cholesky_update, cholesky_update_batch, test_cholesky_update, cholesky_update_vectorized, hyperbolic_qr_update
+from utils.toolkit import target2onehot, tensor2numpy, cholesky_update, cholesky_update_batch, test_cholesky_update, cholesky_update_vectorized, hyperbolic_qr_update, cholesky_rank_k_update
 
 import time
 import os
@@ -98,13 +98,22 @@ class Learner(BaseLearner):
         else:
             ridge = self.args['ridge']
         '''
-        #ridge = 100000
+        ridge = 100000
+
+        # If this is the first update with non-zero data:
+        if torch.all(torch.isclose(self.L, torch.eye(self.L.shape[0]) * torch.sqrt(torch.tensor(ridge)))):
+            # Initialize with the full decomposition once
+            W_aux = self.G + ridge * torch.eye(self.G.size(dim=0))
+            self.L = torch.linalg.cholesky(W_aux)
+        else:
+            # Then use the efficient updates for subsequent data
+            Features_h_T = Features_h.T.to(self.L.device)
+            self.L = cholesky_rank_k_update(self.L, Features_h_T, add=True)
         
 
-        for i in range(Features_h.shape[0]):
-            x = Features_h[i, :].unsqueeze(1)  # shape M×1
-            self.L = hyperbolic_qr_update(self.L, x, add=True)
-
+        if self.L.device != Features_h.T.device:
+            Features_h = Features_h.to(self.L.device)
+            
         #self.L = hyperbolic_qr_update(self.L, Features_h.T, add=True) # vectorized version hyperbolic 
         #self.L = cholesky_update_vectorized(self.L, Features_h.T, add=True) # vectorized version (not working)
 
@@ -141,8 +150,11 @@ class Learner(BaseLearner):
 
             self.Q = torch.zeros(M, self.args["nb_classes"])
             self.G = torch.zeros(M, M, dtype=torch.float32)
-            #self.L = torch.zeros(M, M, dtype=torch.float32)
-            self.L = torch.eye(M, dtype=torch.float32) * torch.sqrt(torch.tensor(ridge, dtype=torch.float32))
+            self.L = torch.zeros(M, M, dtype=torch.float32)
+
+            # for inicialization without the if else condition in replace_fc
+            #self.L = torch.eye(M, dtype=torch.float32) * torch.sqrt(torch.tensor(ridge, dtype=torch.float32))  
+
             #self.D = torch.zeros(M, M, dtype=torch.float32)
 
             self.RP_initialized = True

@@ -486,3 +486,59 @@ def hyperbolic_qr_update(L, X, add=True):
     L_new = torch.tril(L_new)
 
     return L_new
+
+def cholesky_rank_k_update(L, X, add=True):
+    """
+    Pure Cholesky rank-k update/downdate implementation.
+    Uses the Cholesky-Schur formula for efficient vectorized updates.
+    
+    Parameters:
+    -----------
+    L : torch.Tensor
+        Lower triangular Cholesky factor of shape (n, n)
+    X : torch.Tensor
+        Matrix of shape (n, k) where k is the number of simultaneous rank-1 updates
+    add : bool
+        If True, perform update (A + XX'); if False, perform downdate (A - XX')
+        
+    Returns:
+    --------
+    L_new : torch.Tensor
+        Updated Cholesky factor
+    """
+    n = L.shape[0]
+    k = X.shape[1]
+    device = L.device
+    
+    # Step 1: Solve L*P = X (triangular solve for each column of X)
+    P = torch.triangular_solve(X, L, upper=False)[0]  # Shape: (n, k)
+    
+    if not add:
+        # For downdates, check positive definiteness
+        PTP = torch.eye(k, device=device) - P.t() @ P
+        eigenvalues = torch.linalg.eigvalsh(PTP)
+        if torch.any(eigenvalues <= 0):
+            raise ValueError("Cholesky downdate would result in a non-positive definite matrix")
+    
+    # Step 2: Compute the Cholesky factor of (I ± P'P)
+    sign = 1.0 if add else -1.0
+    I_pm_PTP = torch.eye(k, device=device) + sign * P.t() @ P
+    
+    # Compute Cholesky factor of I ± P'P
+    C = torch.linalg.cholesky(I_pm_PTP)  # Shape: (k, k)
+    
+    # Step 3: Compute the updated Cholesky factor
+    # For updates: L_new = L + P @ (C⁻ᵀ - I) @ P' @ L⁻ᵀ
+    # For downdates: L_new = L - P @ (C⁻ᵀ - I) @ P' @ L⁻ᵀ
+    W = torch.triangular_solve(P @ torch.triangular_solve(P.t(), C.t(), upper=True)[0], 
+                              L.t(), upper=True)[0]
+    
+    if add:
+        L_new = L + W.t()
+    else:
+        L_new = L - W.t()
+    
+    # Ensure the result is lower triangular (for numerical stability)
+    L_new = torch.tril(L_new)
+    
+    return L_new
