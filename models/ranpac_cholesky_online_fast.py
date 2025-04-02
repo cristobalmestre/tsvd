@@ -120,7 +120,9 @@ class Learner(BaseLearner):
         ridge = 100000
 
         try:
-            self.L = cholesky_rank_k_update(self.L, Features_h_T, add=True)
+            #self.L = cholesky_rank_k_update(self.L, Features_h_T, add=True)
+            self.L = hyperbolic_qr_update(self.L, Features_h.T, add=True) # vectorized version hyperbolic 
+
         except Exception as e:
             # Fallback: Recompute full Cholesky if update fails
             print(f"Rank-k update failed, falling back to full Cholesky: {e}")
