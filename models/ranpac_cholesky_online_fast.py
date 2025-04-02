@@ -106,7 +106,8 @@ class Learner(BaseLearner):
             # Fallback: Recompute full Cholesky if update fails
             print(f"Rank-k update failed, falling back to full Cholesky: {e}")
             ridge = 100000
-            W_aux = self.G + ridge * torch.eye(self.G.size(dim=0), device=self._device)
+            # W_aux = self.G + ridge * torch.eye(self.G.size(dim=0), device=self._device)
+            W_aux = self.G + ridge*torch.eye(self.G.size(dim=0))
             self.L = torch.linalg.cholesky(W_aux)
         
 
