@@ -97,6 +97,10 @@ class Learner(BaseLearner):
         Features_h = F.relu(embedding_list @ self.W_rand)
         Features_h_T = Features_h.T
 
+        # Make sure Q and G are on the same device
+        self.Q = self.Q.to(self._device)
+        self.G = self.G.to(self._device)
+
         self.Q = self.Q + Features_h_T @ Y
         self.G = self.G + Features_h_T @ Features_h
 
