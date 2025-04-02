@@ -86,26 +86,11 @@ class Learner(BaseLearner):
 
         embedding_list = torch.cat(embedding_list, dim=0)
         label_list = torch.cat(label_list, dim=0)
-
-        # Move to device once for consistent processing
-        embedding_list = embedding_list.to(self._device)
-        label_list = label_list.to(self._device)
         
         Y = target2onehot(label_list, self.args["nb_classes"])
-
-        # Make sure W_rand is on the device
-        self.W_rand = self.W_rand.to(self._device)
-
-        #Features_h = F.relu(embedding_list @ self.W_rand.cpu())
-        Features_h = F.relu(embedding_list @ self.W_rand)
-        Features_h_T = Features_h.T
-
-        # Make sure Q and G are on the same device
-        self.Q = self.Q.to(self._device)
-        self.G = self.G.to(self._device)
-
-        self.Q = self.Q + Features_h_T @ Y
-        self.G = self.G + Features_h_T @ Features_h
+        Features_h = F.relu(embedding_list @ self.W_rand.cpu())
+        self.Q = self.Q + Features_h.T @ Y
+        self.G = self.G + Features_h.T @ Features_h
 
         #self.L, self.D, perm = torch.linalg.ldl_factor(self.G)
         #self.L, self.D = torch.linalg.ldl_factor(self.G, hermitian=True)
@@ -120,13 +105,13 @@ class Learner(BaseLearner):
         '''
         ridge = 100000
 
-        W_aux = self.G + ridge*torch.eye(self.G.size(dim=0), device=self._device)
+        W_aux = self.G + ridge*torch.eye(self.G.size(dim=0))
+
         self.L = torch.linalg.cholesky(W_aux)
         Wo = torch.cholesky_solve(self.Q, self.L).T
 
         #Wo = torch.linalg.solve(self.G + ridge*torch.eye(self.G.size(dim=0)), self.Q).T # better nmerical stability than .invv
-        # self._network.fc.weight.data = Wo[0:self._network.fc.weight.shape[0], :].to(self._device)
-        self._network.fc.weight.data = Wo[0:self._network.fc.weight.shape[0], :]
+        self._network.fc.weight.data = Wo[0:self._network.fc.weight.shape[0], :].to(self._device)
 
         # print(self._network.fc.weight.data.shape)
         #
@@ -150,14 +135,9 @@ class Learner(BaseLearner):
             self.W_rand = torch.randn(self._network.fc.in_features, M).to(self._device)
             self._network.W_rand = self.W_rand
 
-            #self.Q = torch.zeros(M, self.args["nb_classes"])
-            #self.G = torch.zeros(M, M, dtype=torch.float32)
-
-            # Initialize on the proper device
-            self.Q = torch.zeros(M, self.args["nb_classes"], device=self._device)
-            self.G = torch.zeros(M, M, dtype=torch.float32, device=self._device)
-
-            self.L = torch.zeros(M, M, dtype=torch.float32, device=self._device)
+            self.Q = torch.zeros(M, self.args["nb_classes"])
+            self.G = torch.zeros(M, M, dtype=torch.float32)
+            self.L = torch.zeros(M, M, dtype=torch.float32)
             #self.D = torch.zeros(M, M, dtype=torch.float32)
 
             self.RP_initialized = True
