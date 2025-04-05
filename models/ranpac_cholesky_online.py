@@ -102,8 +102,8 @@ class Learner(BaseLearner):
         self.Q = self.Q.to(self._device)
         self.G = self.G.to(self._device)
 
-        self.Q = self.Q + Features_h.T @ Y
-        self.G = self.G + Features_h.T @ Features_h
+        self.Q = self.Q + Features_h_T @ Y
+        self.G = self.G + Features_h_T @ Features_h
 
 
         '''
@@ -115,7 +115,7 @@ class Learner(BaseLearner):
         #ridge = 100000
         #W_aux = self.G + ridge*torch.eye(self.G.size(dim=0))
 
-        self.L = cholesky_update_batch(self.L, Features_h.T, add=True)
+        self.L = cholesky_update_batch(self.L, Features_h_T, add=True)
 
         #self.L = torch.linalg.cholesky(W_aux)
         Wo = torch.cholesky_solve(self.Q, self.L).T
