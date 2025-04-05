@@ -259,6 +259,10 @@ def cholesky_update(L, x, add=True):
     L_new : torch.Tensor
     Updated Cholesky factor
     """
+
+    device = L.device
+    x = x.to(device)
+    
     if not add:
         # For downdate, we need to ensure the result will still be positive definite
         v = torch.triangular_solve(x.unsqueeze(1), L, upper=False)[0].squeeze()
@@ -320,6 +324,10 @@ def cholesky_update_batch(L, X, add=True):
     L_new : torch.Tensor
     Updated Cholesky factor after all updates
     """
+
+    device = L.device
+    X = X.to(device)
+
     L_current = L.clone()
     for i in range(X.shape[1]):
         L_current = cholesky_update(L_current, X[:, i], add=add)

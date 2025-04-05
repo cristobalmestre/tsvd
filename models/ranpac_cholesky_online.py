@@ -77,25 +77,34 @@ class Learner(BaseLearner):
                 torch.cuda.synchronize()
                 self.times['feature'] += time.time() - feature_start
 
-                #algorithm_start = time.time()
-                embedding_list.append(embedding.cpu())
-                label_list.append(label.cpu())
-                #self.times['algorithm'] += time.time() - algorithm_start
+                
+                embedding_list.append(embedding)
+                label_list.append(label)         
 
         algorithm_start = time.time()
 
         embedding_list = torch.cat(embedding_list, dim=0)
         label_list = torch.cat(label_list, dim=0)
+
+        # Move to device once for consistent processing
+        #embedding_list = embedding_list.to(self._device)
+        #label_list = label_list.to(self._device)
         
         Y = target2onehot(label_list, self.args["nb_classes"])
-        Features_h = F.relu(embedding_list @ self.W_rand.cpu())
+
+        # Make sure W_rand is on the device
+        self.W_rand = self.W_rand.to(self._device)
+
+        Features_h = F.relu(embedding_list @ self.W_rand)
+        Features_h_T = Features_h.T
+
+        # Make sure Q and G are on the same device
+        self.Q = self.Q.to(self._device)
+        self.G = self.G.to(self._device)
+
         self.Q = self.Q + Features_h.T @ Y
         self.G = self.G + Features_h.T @ Features_h
 
-        #self.L, self.D, perm = torch.linalg.ldl_factor(self.G)
-        #self.L, self.D = torch.linalg.ldl_factor(self.G, hermitian=True)
-        #self.D = self.D.to(dtype=self.G.dtype)
-        #self.G = self.L @ self.D @ self.L.T
 
         '''
         if self.args['search_ridge']:
@@ -112,7 +121,7 @@ class Learner(BaseLearner):
         Wo = torch.cholesky_solve(self.Q, self.L).T
 
         #Wo = torch.linalg.solve(self.G + ridge*torch.eye(self.G.size(dim=0)), self.Q).T # better nmerical stability than .invv
-        self._network.fc.weight.data = Wo[0:self._network.fc.weight.shape[0], :].to(self._device)
+        self._network.fc.weight.data = Wo[0:self._network.fc.weight.shape[0], :]
 
         # print(self._network.fc.weight.data.shape)
         #
@@ -136,11 +145,12 @@ class Learner(BaseLearner):
             self.W_rand = torch.randn(self._network.fc.in_features, M).to(self._device)
             self._network.W_rand = self.W_rand
 
-            self.Q = torch.zeros(M, self.args["nb_classes"])
-            self.G = torch.zeros(M, M, dtype=torch.float32)
-            #self.L = torch.zeros(M, M, dtype=torch.float32)
-            self.L = torch.eye(M, dtype=torch.float32) * torch.sqrt(torch.tensor(ridge, dtype=torch.float32))
-            #self.D = torch.zeros(M, M, dtype=torch.float32)
+            self.Q = torch.zeros(M, self.args["nb_classes"], device=self._device)
+            self.G = torch.zeros(M, M, dtype=torch.float32, device=self._device)
+
+            # Ensure everything is on the same device
+            ridge_sqrt = torch.sqrt(torch.tensor(ridge, dtype=torch.float32, device=self._device))
+            self.L = torch.eye(M, dtype=torch.float32, device=self._device) * ridge_sqrt
 
             self.RP_initialized = True
 

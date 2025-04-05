@@ -77,10 +77,9 @@ class Learner(BaseLearner):
                 torch.cuda.synchronize()
                 self.times['feature'] += time.time() - feature_start
 
-                #algorithm_start = time.time()
+                
                 embedding_list.append(embedding.cpu())
                 label_list.append(label.cpu())
-                #self.times['algorithm'] += time.time() - algorithm_start
 
         algorithm_start = time.time()
 
@@ -96,7 +95,6 @@ class Learner(BaseLearner):
         # Make sure W_rand is on the device
         self.W_rand = self.W_rand.to(self._device)
 
-        #Features_h = F.relu(embedding_list @ self.W_rand.cpu())
         Features_h = F.relu(embedding_list @ self.W_rand)
         Features_h_T = Features_h.T
 
@@ -107,10 +105,6 @@ class Learner(BaseLearner):
         self.Q = self.Q + Features_h_T @ Y
         self.G = self.G + Features_h_T @ Features_h
 
-        #self.L, self.D, perm = torch.linalg.ldl_factor(self.G)
-        #self.L, self.D = torch.linalg.ldl_factor(self.G, hermitian=True)
-        #self.D = self.D.to(dtype=self.G.dtype)
-        #self.G = self.L @ self.D @ self.L.T
 
         '''
         if self.args['search_ridge']:
