@@ -262,7 +262,7 @@ def cholesky_update(L, x, add=True):
 
     device = L.device
     x = x.to(device)
-    
+
     if not add:
         # For downdate, we need to ensure the result will still be positive definite
         v = torch.triangular_solve(x.unsqueeze(1), L, upper=False)[0].squeeze()
@@ -651,3 +651,107 @@ def cholesky_rank_k_update_v2(L, X, add=True, eps=1e-6): # Not used yet
         
         # Compute fresh Cholesky
         return torch.linalg.cholesky(A_new)
+
+def optimized_cholesky_update_batch(L, X, add=True):
+    """
+    Optimized implementation of Cholesky rank-k update that leverages sparsity in X.
+    
+    Parameters:
+    -----------
+    L : torch.Tensor
+        Lower triangular Cholesky factor of shape (n, n)
+    X : torch.Tensor
+        Matrix of shape (n, k) where each column is a rank-1 update vector
+        Assumed to be sparse (many zeros, especially after ReLU)
+    add : bool
+        If True, perform rank-1 updates; if False, perform rank-1 downdates
+    
+    Returns:
+    --------
+    L_new : torch.Tensor
+        Updated Cholesky factor after all updates
+    """
+    device = L.device
+    X = X.to(device)
+    n, k = X.shape
+    L_new = L.clone()
+    
+    # For each column in X (each rank-1 update)
+    for j in range(k):
+        x = X[:, j]
+        
+        # Find non-zero elements in x to avoid unnecessary computations
+        non_zero_indices = torch.nonzero(x, as_tuple=True)[0]
+        
+        if len(non_zero_indices) == 0:
+            continue  # Skip completely zero vectors
+        
+        # Get the first non-zero index
+        first_idx = non_zero_indices[0].item()
+        
+        # Check positive definiteness for downdates
+        if not add:
+            v = torch.triangular_solve(x.unsqueeze(1), L_new, upper=False)[0].squeeze()
+            v_norm_sq = torch.sum(v**2)
+            if v_norm_sq >= 1.0:
+                raise ValueError("Cholesky downdate would result in a non-positive definite matrix")
+        
+        # Process diagonal and below for each non-zero element
+        for idx in range(first_idx, n):
+            # Skip computation if x[idx] is zero
+            if idx not in non_zero_indices and idx > first_idx:
+                continue
+                
+            if add:
+                # Rank-1 update: A + x @ x.T
+                r = torch.sqrt(L_new[idx, idx]**2 + x[idx]**2)
+                
+                # Skip division if diagonal element is very small
+                if L_new[idx, idx] > 1e-10:
+                    c = r / L_new[idx, idx]
+                    s = x[idx] / L_new[idx, idx]
+                else:
+                    c = 1.0
+                    s = 0.0
+                    
+                L_new[idx, idx] = r
+                
+                if idx < n - 1:
+                    # Find intersection of non-zero indices and indices below current row
+                    below_indices = non_zero_indices[non_zero_indices > idx]
+                    
+                    if len(below_indices) > 0:
+                        # Only update rows that have non-zero x values or non-zero L values
+                        mask = torch.zeros(n-idx-1, dtype=torch.bool, device=device)
+                        mask[below_indices - idx - 1] = True
+                        
+                        # Also include rows where L has non-zero values
+                        non_zero_L = torch.nonzero(L_new[idx+1:, idx], as_tuple=True)[0]
+                        if len(non_zero_L) > 0:
+                            mask[non_zero_L] = True
+                        
+                        # Get relevant indices
+                        update_indices = torch.nonzero(mask, as_tuple=True)[0] + idx + 1
+                        
+                        if len(update_indices) > 0:
+                            L_new[update_indices, idx] = (L_new[update_indices, idx] + s * x[update_indices]) / c
+                            x[update_indices] = x[update_indices] - s * L_new[update_indices, idx]
+            else:
+                # Rank-1 downdate: A - x @ x.T
+                p = x[idx] / L_new[idx, idx]
+                r = torch.sqrt(max(L_new[idx, idx]**2 - x[idx]**2, torch.tensor(1e-10, device=device)))
+                c = r / L_new[idx, idx]
+                s = p / L_new[idx, idx]
+                L_new[idx, idx] = r
+                
+                if idx < n - 1:
+                    # Find indices below current row with non-zero values
+                    below_indices = non_zero_indices[non_zero_indices > idx]
+                    
+                    if len(below_indices) > 0:
+                        # Get relevant indices
+                        update_indices = below_indices
+                        x[update_indices] = x[update_indices] - p * L_new[update_indices, idx]
+                        L_new[update_indices, idx] = c * L_new[update_indices, idx] - s * x[update_indices]
+    
+    return L_new
