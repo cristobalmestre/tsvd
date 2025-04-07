@@ -38,7 +38,7 @@ class Learner(BaseLearner):
         self._known_classes = self._total_classes
 
     def save_times(self):
-        logging.info('test 1 time')
+        
         M = self.args['M']
 
         root = './results'
@@ -58,7 +58,6 @@ class Learner(BaseLearner):
         logging.info(f"Feature extraction time: {self.times['feature']:.4f} seconds")
         logging.info(f"Algorithm processing time: {self.times['algorithm']:.4f} seconds")
         logging.info(f"Total training time saved in: {fn}")
-        logging.info('test 2 time')
     
     def replace_fc(self, trainloader, model, args):       
         model = model.eval()
@@ -77,9 +76,10 @@ class Learner(BaseLearner):
                 torch.cuda.synchronize()
                 self.times['feature'] += time.time() - feature_start
 
-                
-                embedding_list.append(embedding)
-                label_list.append(label)         
+                algorithm_start = time.time()
+                embedding_list.append(embedding.cpu())
+                label_list.append(label.cpu())
+                self.times['algorithm'] += time.time() - algorithm_start     
 
         algorithm_start = time.time()
 
@@ -87,8 +87,8 @@ class Learner(BaseLearner):
         label_list = torch.cat(label_list, dim=0)
 
         # Move to device once for consistent processing
-        #embedding_list = embedding_list.to(self._device)
-        #label_list = label_list.to(self._device)
+        embedding_list = embedding_list.to(self._device)
+        label_list = label_list.to(self._device)
         
         Y = target2onehot(label_list, self.args["nb_classes"])
 
@@ -112,7 +112,7 @@ class Learner(BaseLearner):
         else:
             ridge = self.args['ridge']
         '''
-        #ridge = 100000
+        ridge = 100000
         #W_aux = self.G + ridge*torch.eye(self.G.size(dim=0))
 
         self.L = cholesky_update_batch(self.L, Features_h_T, add=True)
