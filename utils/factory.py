@@ -42,6 +42,8 @@ def get_model(model_name, args):
         from models.ranpac_cholesky_online_fast import Learner
     elif name == 'ranpac_cholesky_online_opt':
         from models.ranpac_cholesky_online_opt import Learner
+    elif name == 'ranpac_cholesky_online_diag_vect':
+        from models.ranpac_cholesky_online_diag_vect import Learner
     elif name == "ease":
         from models.ease import Learner
     elif name == 'tsvd':

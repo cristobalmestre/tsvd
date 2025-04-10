@@ -9,7 +9,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from utils.inc_net import IncrementalNet,SimpleCosineIncrementalNet,MultiBranchCosineIncrementalNet,SimpleVitNet
 from models.base import BaseLearner
-from utils.toolkit import target2onehot, tensor2numpy, cholesky_update, cholesky_update_batch, test_cholesky_update, optimized_cholesky_update_batch
+from utils.toolkit import target2onehot, tensor2numpy, cholesky_update, cholesky_update_batch, test_cholesky_update, optimized_cholesky_update_batch, batched_cholesky_update_diag_vectorized
 
 import time
 import os
@@ -115,7 +115,7 @@ class Learner(BaseLearner):
         ridge = 100000
         #W_aux = self.G + ridge*torch.eye(self.G.size(dim=0))
 
-        self.L = optimized_cholesky_update_batch(self.L, Features_h_T, add=True)
+        self.L = batched_cholesky_update_diag_vectorized(self.L, Features_h_T, add=True)
 
         #self.L = torch.linalg.cholesky(W_aux)
         Wo = torch.cholesky_solve(self.Q, self.L).T

@@ -689,13 +689,7 @@ def optimized_cholesky_update_batch(L, X, add=True):
         # Get the first non-zero index
         first_idx = non_zero_indices[0].item()
         
-        # Check positive definiteness for downdates
-        if not add:
-            v = torch.triangular_solve(x.unsqueeze(1), L_new, upper=False)[0].squeeze()
-            v_norm_sq = torch.sum(v**2)
-            if v_norm_sq >= 1.0:
-                raise ValueError("Cholesky downdate would result in a non-positive definite matrix")
-        
+       
         # Process diagonal and below for each non-zero element
         for idx in range(first_idx, n):
             # Skip computation if x[idx] is zero
@@ -736,22 +730,68 @@ def optimized_cholesky_update_batch(L, X, add=True):
                         if len(update_indices) > 0:
                             L_new[update_indices, idx] = (L_new[update_indices, idx] + s * x[update_indices]) / c
                             x[update_indices] = x[update_indices] - s * L_new[update_indices, idx]
-            else:
-                # Rank-1 downdate: A - x @ x.T
-                p = x[idx] / L_new[idx, idx]
-                r = torch.sqrt(max(L_new[idx, idx]**2 - x[idx]**2, torch.tensor(1e-10, device=device)))
-                c = r / L_new[idx, idx]
-                s = p / L_new[idx, idx]
-                L_new[idx, idx] = r
-                
-                if idx < n - 1:
-                    # Find indices below current row with non-zero values
-                    below_indices = non_zero_indices[non_zero_indices > idx]
-                    
-                    if len(below_indices) > 0:
-                        # Get relevant indices
-                        update_indices = below_indices
-                        x[update_indices] = x[update_indices] - p * L_new[update_indices, idx]
-                        L_new[update_indices, idx] = c * L_new[update_indices, idx] - s * x[update_indices]
+
     
+    return L_new
+
+def batched_cholesky_update_diag_vectorized(L, X, add=True):
+    n, k = X.shape
+    L_new = L.clone()
+    X_new = X.clone()
+
+    device = X.device
+
+    i_grid = torch.arange(n, device=device).unsqueeze(1).expand(n, k)
+    j_grid = torch.arange(k, device=device).unsqueeze(0).expand(n, k)
+    diag_ids = i_grid + j_grid
+
+    row_indices = torch.arange(n, device=device).view(-1, 1)  # (n, 1)
+
+    for d in range(n + k - 1):
+        mask = diag_ids == d
+        if not mask.any():
+            continue
+
+        i_idx, j_idx = mask.nonzero(as_tuple=True)
+
+        L_diag = L_new[i_idx, i_idx]
+        X_diag = X_new[i_idx, j_idx]
+
+        r = torch.sqrt(L_diag**2 + X_diag**2)
+        c = r / L_diag
+        s = X_diag / L_diag
+
+        L_new[i_idx, i_idx] = r
+
+        # -------- Fully vectorized updates start here --------
+
+        # Expand i and j
+        i_expand = i_idx.view(1, -1)  # (1, num_diagonal_elements)
+        j_expand = j_idx.view(1, -1)  # (1, num_diagonal_elements)
+
+        # Build mask for valid rows: rows > i
+        valid_mask = row_indices > i_expand  # (n, num_diagonal_elements)
+
+        # Broadcast row operations
+        s_expand = s.view(1, -1)       # (1, num_diagonal_elements)
+        c_expand = c.view(1, -1)       # (1, num_diagonal_elements)
+
+        # Only update valid rows (row > i)
+        if valid_mask.any():
+            # For L update
+            L_selected = L_new[:, i_idx]  # (n, num_diagonal_elements)
+            X_selected = X_new[:, j_idx]  # (n, num_diagonal_elements)
+
+            # Update formulas applied only on valid_mask
+            L_updated = (L_selected + s_expand * X_selected) / c_expand
+            X_updated = X_selected - s_expand * L_updated
+
+            # Masked scatter update
+            L_selected = torch.where(valid_mask, L_updated, L_selected)
+            X_selected = torch.where(valid_mask, X_updated, X_selected)
+
+            # Write back
+            L_new[:, i_idx] = L_selected
+            X_new[:, j_idx] = X_selected
+
     return L_new
