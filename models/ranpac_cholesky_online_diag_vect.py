@@ -79,7 +79,7 @@ class Learner(BaseLearner):
                 algorithm_start = time.time()
                 embedding_list.append(embedding.cpu())
                 label_list.append(label.cpu())
-                self.times['algorithm'] += time.time() - algorithm_start   
+                #self.times['algorithm'] += time.time() - algorithm_start   
 
         algorithm_start = time.time()
 
