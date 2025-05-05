@@ -795,3 +795,124 @@ def batched_cholesky_update_diag_vectorized(L, X, add=True):
             X_new[:, j_idx] = X_selected
 
     return L_new
+
+
+def sketch_initialization(A, k, device=None):
+    """
+    Algorithm 1: Sketch Initialization with a random orthonormal test matrix.
+    Implements formula (2.2)-(2.3) from the paper.
+    
+    Args:
+        A: Positive-semidefinite input matrix (n×n)
+        k: Sketch size parameter (r ≤ k ≤ n)
+        device: Device to store tensors on
+        
+    Returns:
+        Omega: Test matrix (n×k) with orthonormal columns
+        Y: Sketch Y = A*Omega (n×k)
+    """
+    n = A.shape[0]
+    
+    Omega = torch.randn(n, k, device=device)
+    
+    # Orthonormalize using QR decomposition (more stable than direct normalization)
+    Omega, _ = torch.linalg.qr(Omega, mode='reduced')
+    
+    # Compute the sketch Y = A*Omega
+    Y = A @ Omega
+    
+    return Omega, Y
+
+def linear_update(Omega, Y, theta1, theta2, H):
+    """
+    Algorithm 2: Linear Update to the sketch.
+    Implements formula (2.4) from the paper.
+    
+    Args:
+        Omega: Test matrix (n×k)
+        Y: Current sketch (n×k)
+        theta1, theta2: Scalar coefficients for the update
+        H: Innovation matrix (must be symmetric/Hermitian)
+        
+    Returns:
+        Updated sketch Y
+    """
+    # Compute the update Y ← θ1*Y + θ2*H*Omega
+    Y_new = theta1 * Y + theta2 * (H @ Omega)
+    
+    return Y_new
+
+def fixed_rank_psd_approximation(Omega, Y, r, nu=None):
+    """
+    Algorithm 3: Fixed-Rank PSD Approximation using Nyström method.
+    Implements formula (2.7) from the paper with numerical stability improvements.
+    
+    Args:
+        Omega: Test matrix (n×k) with orthonormal columns
+        Y: Sketch Y = A*Omega (n×k)
+        r: Target rank for approximation (r ≤ k)
+        nu: Small regularization parameter for numerical stability (default: machine epsilon)
+        
+    Returns:
+        U: Orthonormal matrix of eigenvectors (n×r)
+        Lambda: Diagonal matrix of eigenvalues (r×r)
+        
+    The approximation is given by A_hat_r = U * Lambda * U^*
+    """
+    # Get device and dtype from input tensors
+    device = Y.device
+    dtype = Y.dtype
+    
+    # Set default regularization parameter if not provided
+    if nu is None:
+        nu = torch.finfo(Y.dtype).eps * 2.2  # Similar to MATLAB's eps
+    
+    # 1. Form the shifted sketch Yν = Y + νΩ
+    Y_nu = Y + nu * Omega
+    
+    # 2. Form the Gram matrix B = Ω^* * Yν
+    B = Omega.t() @ Y_nu
+    
+    # 3. Force symmetry to prevent numerical issues
+    B = (B + B.t().conj()) / 2
+    
+    # 4. Compute the Cholesky decomposition B = C*C^*
+    try:
+        C = torch.linalg.cholesky(B)
+    except RuntimeError:
+        # If Cholesky fails, add a small regularization and try again
+        B_reg = B + torch.eye(B.shape[0], device=device, dtype=dtype) * nu * 10
+        C = torch.linalg.cholesky(B_reg)
+    
+    # 5. Compute E = Yν * C^(-1) by solving the linear system
+    # We want to compute E = Y_nu × C^(-1)
+    # Solve the system C × X_transpose = Y_nu.transpose()
+    # Then E = X_transpose.transpose()
+    E = torch.linalg.solve_triangular(C, Y_nu.t(), upper=False).t()
+    
+    # 6. Compute the SVD of E to get U and Sigma
+    U, Sigma, _ = torch.linalg.svd(E, full_matrices=False)
+    
+    # 7. Square singular values to get eigenvalues, subtract shift, and keep only non-negative values
+    Lambda_full = torch.maximum(Sigma**2 - nu, torch.zeros_like(Sigma))
+    
+    # 8. Truncate to rank r
+    U_r = U[:, :r]
+    Lambda_r = Lambda_full[:r]
+    
+    # Return the factors for the rank-r approximation
+    return U_r, torch.diag(Lambda_r)
+
+# Additional utility function to compute the full approximation matrix if needed
+def compute_approximation(U, Lambda):
+    """
+    Compute the full approximation matrix from its factors.
+    
+    Args:
+        U: Orthonormal matrix of eigenvectors (n×r)
+        Lambda: Diagonal matrix of eigenvalues (r×r)
+        
+    Returns:
+        A_hat: Approximation of matrix A (n×n)
+    """
+    return U @ Lambda @ U.t()
