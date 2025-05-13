@@ -45,7 +45,7 @@ def get_model(model_name, args):
     elif name == 'ranpac_cholesky_online_diag_vect':
         from models.ranpac_cholesky_online_diag_vect import Learner
     elif name == 'ranpac_nystrom':
-        from models.ranpac_cholesky_online_diag_vect import Learner
+        from models.ranpac_nystrom import Learner
     elif name == "ease":
         from models.ease import Learner
     elif name == 'tsvd':
