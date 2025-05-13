@@ -96,7 +96,7 @@ class Learner(BaseLearner):
         embedding_list = embedding_list.to(self._device)
         label_list = label_list.to(self._device)
         
-        Y = target2onehot(label_list, self.args["nb_classes"])
+        #Y = target2onehot(label_list, self.args["nb_classes"])
 
         # Make sure W_rand is on the device
         self.W_rand = self.W_rand.to(self._device)
@@ -107,23 +107,21 @@ class Learner(BaseLearner):
 
         # Make sure Q and G are on the same device
         self.Q = self.Q.to(self._device)
-        self.G = self.G.to(self._device)
+        # G should go away
+        #self.G = self.G.to(self._device)
 
         self.Q = self.Q + Features_h_T @ Y
         #self.G = self.G + Features_h_T @ Features_h
-        H = Features_h_T @ Features_h
+        #H = Features_h_T @ Features_h
 
         # Check if we should use Nyström approximation
         if use_nystrom:
         
-            # Initialize sketch with G
-            Omega, Y = sketch_initialization(self.G, sketch_size, device=self._device)
-
-            # Make linear update with H
-            Y = linear_update(Omega, Y, 1, ridge, H)
+            # Make linear update with Features_h
+            Y = linear_update(self.Omega, self.Y, 1, ridge, Features_h)
             
             # Get low-rank approximation of G with Lambda <- (Sigma^2 - nu * I)
-            U, Lambda = fixed_rank_psd_approximation(Omega, Y, nystrom_rank)
+            U, Lambda = fixed_rank_psd_approximation(self.Omega, self.Y, nystrom_rank)
             
             # In the Nyström approach, this U and Lambda now form a rank-r approximation of G
             # So we have G ≈ U @ Lambda @ U.T
@@ -131,10 +129,10 @@ class Learner(BaseLearner):
             
             # Compute W0 using the approximated inverse
             Wo = (G_approx @ self.Q).T
+        
         else:
-            # Use the original approach
-            eye_matrix = torch.eye(self.G.size(dim=0), device=self._device)
-            Wo = torch.linalg.solve(self.G + ridge*eye_matrix, self.Q).T
+            logging.error("Non-Nyström branch is disabled. Please enable 'use_nystrom'.")
+            sys.exit(1)
 
 
         self._network.fc.weight.data = Wo[0:self._network.fc.weight.shape[0], :]#.to(self._device)
@@ -161,8 +159,13 @@ class Learner(BaseLearner):
             self.W_rand = torch.randn(self._network.fc.in_features, M).to(self._device)
             self._network.W_rand = self.W_rand
 
-            self.Q = torch.zeros(M, self.args["nb_classes"], device=self._device)
+            # Initialize sketch with G
+            sketch_size = 2 * self.args["nb_classes"]  # Size of the sketch (k parameter)
             self.G = torch.zeros(M, M, dtype=torch.float32, device=self._device)
+            self.Omega, self.Y = sketch_initialization(self.G, sketch_size, device=self._device)
+
+            self.Q = torch.zeros(M, self.args["nb_classes"], device=self._device)
+            
 
             self.RP_initialized = True
 

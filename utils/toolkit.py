@@ -823,7 +823,7 @@ def sketch_initialization(A, k, device=None):
     
     return Omega, Y
 
-def linear_update(Omega, Y, theta1, theta2, H):
+def linear_update(Omega, Y, theta1, theta2, Features_h):
     """
     Algorithm 2: Linear Update to the sketch.
     Implements formula (2.4) from the paper.
@@ -832,13 +832,15 @@ def linear_update(Omega, Y, theta1, theta2, H):
         Omega: Test matrix (n×k)
         Y: Current sketch (n×k)
         theta1, theta2: Scalar coefficients for the update
-        H: Innovation matrix (must be symmetric/Hermitian)
+        Features_h: set of features that allow to build the Innovation matrix (must be symmetric/Hermitian)
         
     Returns:
         Updated sketch Y
     """
+
+    Features_h_T = Features_h.T
     # Compute the update Y ← θ1*Y + θ2*H*Omega
-    Y_new = theta1 * Y + theta2 * (H @ Omega)
+    Y_new = theta1 * Y + theta2 * (Features_h_T @ (Features_h @ Omega))
     
     return Y_new
 
@@ -901,7 +903,7 @@ def fixed_rank_psd_approximation(Omega, Y, r, nu=None):
     Lambda_r = Lambda_full[:r]
     
     # Return the factors for the rank-r approximation
-    return U_r, torch.diag(Lambda_r)
+    return U_r, Lambda_r
 
 # Additional utility function to compute the full approximation matrix if needed
 def compute_approximation(U, Lambda):
