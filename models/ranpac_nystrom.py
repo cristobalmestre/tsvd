@@ -110,7 +110,7 @@ class Learner(BaseLearner):
         # G should go away
         #self.G = self.G.to(self._device)
 
-        self.Q = self.Q + Features_h_T @ Y
+        self.Q = self.Q + Features_h_T @ self.Y
         #self.G = self.G + Features_h_T @ Features_h
         #H = Features_h_T @ Features_h
 
