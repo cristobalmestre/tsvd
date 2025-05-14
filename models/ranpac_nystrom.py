@@ -96,6 +96,9 @@ class Learner(BaseLearner):
         embedding_list = embedding_list.to(self._device)
         label_list = label_list.to(self._device)
         
+        # Create one-hot encoded labels
+        labels_one_hot = target2onehot(label_list, self.args["nb_classes"])
+
         #Y = target2onehot(label_list, self.args["nb_classes"])
 
         # Make sure W_rand is on the device
@@ -105,12 +108,26 @@ class Learner(BaseLearner):
         Features_h = F.relu(embedding_list @ self.W_rand)
         Features_h_T = Features_h.T
 
+        # Check if the first time running (need to initialize self.Y with one-hot labels)
+        if not hasattr(self, 'Y_initialized') or not self.Y_initialized:
+            # First time running - initialize self.Y with one-hot labels
+            self.Y = labels_one_hot
+            self.Y_initialized = True
+            
+            # Also initialize Q (since it's the first time)
+            self.Q = self.Q.to(self._device)
+            self.Q = Features_h_T @ labels_one_hot
+        else:
+            # Not the first time - update Q normally
+            self.Q = self.Q.to(self._device)
+            self.Q = self.Q + Features_h_T @ labels_one_hot
+
         # Make sure Q and G are on the same device
-        self.Q = self.Q.to(self._device)
+        #self.Q = self.Q.to(self._device)
         # G should go away
         #self.G = self.G.to(self._device)
 
-        self.Q = self.Q + Features_h_T @ self.Y
+        #self.Q = self.Q + Features_h_T @ self.Y
         #self.G = self.G + Features_h_T @ Features_h
         #H = Features_h_T @ Features_h
 
@@ -118,7 +135,7 @@ class Learner(BaseLearner):
         if use_nystrom:
         
             # Make linear update with Features_h
-            Y = linear_update(self.Omega, self.Y, 1, ridge, Features_h)
+            self.Y = linear_update(self.Omega, self.Y, 1, ridge, Features_h)
             
             # Get low-rank approximation of G with Lambda <- (Sigma^2 - nu * I)
             U, Lambda = fixed_rank_psd_approximation(self.Omega, self.Y, nystrom_rank)
@@ -166,6 +183,8 @@ class Learner(BaseLearner):
 
             self.Q = torch.zeros(M, self.args["nb_classes"], device=self._device)
             
+            # Add a flag to track Y initialization
+            self.Y_initialized = False
 
             self.RP_initialized = True
 

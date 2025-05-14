@@ -867,7 +867,7 @@ def fixed_rank_psd_approximation(Omega, Y, r, nu=None):
     
     # Set default regularization parameter if not provided
     if nu is None:
-        nu = torch.finfo(Y.dtype).eps * 2.2  # Similar to MATLAB's eps
+        nu = torch.finfo(Y.dtype).eps * 2.2
     
     # 1. Form the shifted sketch Yν = Y + νΩ
     Y_nu = Y + nu * Omega
@@ -896,6 +896,7 @@ def fixed_rank_psd_approximation(Omega, Y, r, nu=None):
     U, Sigma, _ = torch.linalg.svd(E, full_matrices=False)
     
     # 7. Square singular values to get eigenvalues, subtract shift, and keep only non-negative values
+    # Here it's possible to intervine with a broadcast calculation for sigma as a vector. I'll check this.
     Lambda_full = torch.maximum(Sigma**2 - nu, torch.zeros_like(Sigma))
     
     # 8. Truncate to rank r
