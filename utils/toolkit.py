@@ -839,8 +839,15 @@ def linear_update(Omega, Y, theta1, theta2, Features_h):
     """
 
     Features_h_T = Features_h.T
+
+    intermediate = Features_h @ Omega
+    print(f"linear_update - intermediate shape: {intermediate.shape}")
+
+    # Then calculate the final product
+    update_term = Features_h_T @ intermediate
+
     # Compute the update Y ← θ1*Y + θ2*H*Omega
-    Y_new = theta1 * Y + theta2 * (Features_h_T @ (Features_h @ Omega))
+    Y_new = theta1 * Y + theta2 * update_term
     
     return Y_new
 
@@ -890,10 +897,31 @@ def fixed_rank_psd_approximation(Omega, Y, r, nu=None):
     # We want to compute E = Y_nu × C^(-1)
     # Solve the system C × X_transpose = Y_nu.transpose()
     # Then E = X_transpose.transpose()
-    E = torch.linalg.solve_triangular(C, Y_nu.t(), upper=False).t()
+    #E = torch.linalg.solve_triangular(C, Y_nu.t(), upper=False).t()
+
+    # We solve the system C * X_transpose = Y_nu.transpose() to avoid explicitly computing C^(-1)
+    X_transpose = torch.linalg.solve_triangular(C, Y_nu.t(), upper=False)
+    E = X_transpose.t()  # Now E = Y_nu * C^(-1)
+    print(f"fixed_rank_psd_approximation - E shape: {E.shape}")
+
     
     # 6. Compute the SVD of E to get U and Sigma
-    U, Sigma, _ = torch.linalg.svd(E, full_matrices=False)
+    try:
+        U, Sigma, _ = torch.linalg.svd(E, full_matrices=False)
+        print(f"fixed_rank_psd_approximation - After SVD: U {U.shape}, Sigma {Sigma.shape}")
+    except RuntimeError as e:
+        print(f"SVD failed: {e}")
+        # If SVD fails, try a more stable but slower approach
+        E_plus_E = E @ E.t()
+        eigenvalues, eigenvectors = torch.linalg.eigh(E_plus_E)
+        # Sort in descending order
+        idx = torch.argsort(eigenvalues, descending=True)
+        eigenvalues = eigenvalues[idx]
+        eigenvectors = eigenvectors[:, idx]
+        # Take the square root of eigenvalues to get singular values
+        Sigma = torch.sqrt(torch.clamp(eigenvalues, min=0))
+        U = eigenvectors
+        print(f"fixed_rank_psd_approximation - Alternative approach: U {U.shape}, Sigma {Sigma.shape}")
     
     # 7. Square singular values to get eigenvalues, subtract shift, and keep only non-negative values
     # Here it's possible to intervine with a broadcast calculation for sigma as a vector. I'll check this.
@@ -902,9 +930,12 @@ def fixed_rank_psd_approximation(Omega, Y, r, nu=None):
     # 8. Truncate to rank r
     U_r = U[:, :r]
     Lambda_r = Lambda_full[:r]
+
+    # 9. Create a diagonal matrix for Lambda
+    Lambda_matrix = torch.diag(Lambda_r)
     
     # Return the factors for the rank-r approximation
-    return U_r, Lambda_r
+    return U_r, Lambda_matrix
 
 # Additional utility function to compute the full approximation matrix if needed
 def compute_approximation(U, Lambda):

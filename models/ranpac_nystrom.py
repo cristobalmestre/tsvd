@@ -147,6 +147,9 @@ class Learner(BaseLearner):
             # In the Nyström approach, this U and Lambda now form a rank-r approximation of G
             # So we have G ≈ U @ Lambda @ U.T
             G_approx = U @ Lambda @ U.T
+
+            # Print shapes after approximation
+            print(f"Debug - After approximation: U {U.shape}, Lambda {Lambda.shape}")
             
             # Compute W0 using the approximated inverse
             Wo = (G_approx @ self.Q).T
