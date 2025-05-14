@@ -110,11 +110,15 @@ class Learner(BaseLearner):
 
         # Check if the first time running (need to initialize self.Y with one-hot labels)
         if not hasattr(self, 'Y_initialized') or not self.Y_initialized:
-            # First time running - initialize self.Y with one-hot labels
-            self.Y = labels_one_hot
+            # First time running - initialize self.Y 
+            # Note: self.Y should NOT be the labels - it should be the sketch
+            # Reset the sketch properly - it should have same dimensions as self.G @ self.Omega
+            hidden_dim = self.W_rand.shape[1]  # M dimension
+            # Initialize Y as a zero matrix with proper dimensions
+            self.Y = torch.zeros(hidden_dim, sketch_size, device=self._device)
             self.Y_initialized = True
             
-            # Also initialize Q (since it's the first time)
+            # Initialize Q (since it's the first time)
             self.Q = self.Q.to(self._device)
             self.Q = Features_h_T @ labels_one_hot
         else:
