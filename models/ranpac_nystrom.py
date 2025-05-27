@@ -185,7 +185,8 @@ class Learner(BaseLearner):
             self._network.W_rand = self.W_rand
 
             # Initialize sketch with G
-            sketch_size = 2 * self.args["nb_classes"]  # Size of the sketch (k parameter)
+            sketch_param = 10
+            sketch_size = sketch_param * self.args["nb_classes"]  # Size of the sketch (k parameter)
             self.G = torch.zeros(M, M, dtype=torch.float32, device=self._device)
             self.Omega, self.Y = sketch_initialization(self.G, sketch_size, device=self._device)
 
