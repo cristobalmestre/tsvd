@@ -61,8 +61,9 @@ class Learner(BaseLearner):
 
         # Set parameters directly instead of retrieving from args
         use_nystrom = True  # Whether to use Nyström approximation
-        sketch_size = 2 * self.args["nb_classes"]  # Size of the sketch (k parameter)
-        nystrom_rank = self.args["nb_classes"]  # Target rank (r parameter)
+        sketch_param = 10
+        sketch_size = sketch_param * self.args["nb_classes"]  # Size of the sketch (k parameter)
+        nystrom_rank = (sketch_param / 2) * self.args["nb_classes"]  # Target rank (r parameter)
         ridge = 100000  # Ridge regularization parameter
 
 
