@@ -61,7 +61,7 @@ class Learner(BaseLearner):
 
         # Set parameters directly instead of retrieving from args
         use_nystrom = True  # Whether to use Nyström approximation
-        sketch_param = 10
+        sketch_param = 100
         sketch_param_half = sketch_param // 2
         sketch_size = sketch_param * self.args["nb_classes"]  # Size of the sketch (k parameter)
         nystrom_rank = sketch_param_half * self.args["nb_classes"]  # Target rank (r parameter)
