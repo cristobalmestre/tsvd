@@ -61,7 +61,7 @@ class Learner(BaseLearner):
 
         # Set parameters directly instead of retrieving from args
         use_nystrom = True  # Whether to use Nyström approximation
-        sketch_param = 50
+        sketch_param = 2
         sketch_param_half = sketch_param // 2
         sketch_size = sketch_param * self.args["nb_classes"]  # Size of the sketch (k parameter)
         nystrom_rank = sketch_param_half * self.args["nb_classes"]  # Target rank (r parameter)
@@ -110,16 +110,19 @@ class Learner(BaseLearner):
         Features_h = F.relu(embedding_list @ self.W_rand)
         Features_h_T = Features_h.T
 
+
+
         # Check if the first time running (need to initialize self.Y with one-hot labels)
         if not hasattr(self, 'Y_initialized') or not self.Y_initialized:
             # First time running - initialize self.Y 
             # Note: self.Y should NOT be the labels - it should be the sketch
             # Reset the sketch properly - it should have same dimensions as self.G @ self.Omega
-            hidden_dim = self.W_rand.shape[1]  # M dimension
-            # Initialize Y as a zero matrix with proper dimensions
-            self.Y = torch.zeros(hidden_dim, sketch_size, device=self._device)
+            self.Omega, self.Y = sketch_initialization(Features_h, sketch_size, device=self._device)
+         
+            #self.Y = torch.zeros(hidden_dim, sketch_size, device=self._device)
             self.Y_initialized = True
             
+            '''
             # Initialize Q (since it's the first time)
             self.Q = self.Q.to(self._device)
             self.Q = Features_h_T @ labels_one_hot
@@ -127,6 +130,9 @@ class Learner(BaseLearner):
             # Not the first time - update Q normally
             self.Q = self.Q.to(self._device)
             self.Q = self.Q + Features_h_T @ labels_one_hot
+
+            '''
+
 
         # Make sure Q and G are on the same device
         #self.Q = self.Q.to(self._device)
@@ -185,12 +191,14 @@ class Learner(BaseLearner):
             self.W_rand = torch.randn(self._network.fc.in_features, M).to(self._device)
             self._network.W_rand = self.W_rand
 
+            '''
             # Initialize sketch with G
-            sketch_param = 50
+            sketch_param = 2
             sketch_size = sketch_param * self.args["nb_classes"]  # Size of the sketch (k parameter)
             self.G = torch.zeros(M, M, dtype=torch.float32, device=self._device)
             self.Omega, self.Y = sketch_initialization(self.G, sketch_size, device=self._device)
-
+            '''
+            
             self.Q = torch.zeros(M, self.args["nb_classes"], device=self._device)
             
             # Add a flag to track Y initialization

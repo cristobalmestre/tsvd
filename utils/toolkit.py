@@ -797,13 +797,14 @@ def batched_cholesky_update_diag_vectorized(L, X, add=True):
     return L_new
 
 
-def sketch_initialization(A, k, device=None):
+def sketch_initialization(Features_h, k, device=None):
     """
     Algorithm 1: Sketch Initialization with a random orthonormal test matrix.
     Implements formula (2.2)-(2.3) from the paper.
     
     Args:
-        A: Positive-semidefinite input matrix (n×n)
+        Features_h: features vector
+        A: Positive-semidefinite input matrix - Features_h.T @ Features_h (n×n)
         k: Sketch size parameter (r ≤ k ≤ n)
         device: Device to store tensors on
         
@@ -811,7 +812,7 @@ def sketch_initialization(A, k, device=None):
         Omega: Test matrix (n×k) with orthonormal columns
         Y: Sketch Y = A*Omega (n×k)
     """
-    n = A.shape[0]
+    n = Features_h.shape[1]
     
     Omega = torch.randn(n, k, device=device)
     
@@ -819,7 +820,14 @@ def sketch_initialization(A, k, device=None):
     Omega, _ = torch.linalg.qr(Omega, mode='reduced')
     
     # Compute the sketch Y = A*Omega
-    Y = A @ Omega
+    Features_h_T = Features_h.T
+    intermediate = Features_h @ Omega
+    print(f"linear_update - intermediate shape: {intermediate.shape}")
+
+    # Then calculate the final product
+    Y = Features_h_T @ intermediate
+
+    #Y = A @ Omega
     
     return Omega, Y
 
